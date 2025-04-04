@@ -308,7 +308,7 @@ build_zed() {
 add_to_dock() {
   local app_path="$1"
   echo "Adding $app_path to Dock..."
-  
+
   # Get the current dock apps
   defaults write com.apple.dock persistent-apps -array-add "<dict>
     <key>tile-data</key>
@@ -326,7 +326,7 @@ add_to_dock() {
     <key>tile-type</key>
     <string>file-tile</string>
   </dict>"
-  
+
   # Restart Dock to apply changes
   killall Dock
 }
@@ -389,7 +389,7 @@ install_zed() {
 
     # Convert to icns
     iconutil -c icns "$TMP_ICONSET" -o "$TMP_BUNDLE/Contents/Resources/AppIcon.icns"
-    # rm -rf "$TMP_ICONSET"
+    rm -rf "$TMP_ICONSET"
 
     # Update app display name in Info.plist
     if [ -f "$TMP_BUNDLE/Contents/Info.plist" ]; then
@@ -407,7 +407,7 @@ install_zed() {
       echo "Installation failed. You may need admin privileges to copy to /Applications."
       exit 1
     fi
-    
+
     # Touch the application to clear icon cache
     sudo touch "$INSTALL_DIR"
   else
@@ -501,7 +501,7 @@ EOF
 
     # Clean up temporary app bundle
     rm -rf "$TMP_APP_DIR"
-    
+
     # Touch the application to clear icon cache
     sudo touch "$INSTALL_DIR"
 
@@ -513,30 +513,30 @@ EOF
   fi
 
   echo "Installation completed successfully."
-  
+
   # Force macOS to clear icon caches and refresh the Dock
   echo "Clearing icon caches and refreshing Dock..."
-  
+
   # Clear icon caches
   sudo rm -rf /Library/Caches/com.apple.iconservices.store
   sudo find /private/var/folders/ -name com.apple.dock.iconcache -exec rm -rf {} \; 2>/dev/null || true
   sudo find /private/var/folders/ -name com.apple.iconservices -exec rm -rf {} \; 2>/dev/null || true
-  
+
   # Restart icon services and Finder
   sudo killall iconservicesd
   killall Finder
-  
+
   # Wait a moment for services to restart
   sleep 3
-  
+
   # Force the Dock to add the app and restart
   if [ "$APP_STRUCTURE" = true ]; then
     # Add app to dock using our dedicated function
     add_to_dock "$INSTALL_DIR"
-    
+
     # Wait a moment for Dock to relaunch
     sleep 3
-    
+
     echo "Launching ZED EDGE..."
     # Launch the app
     open "$INSTALL_DIR"
