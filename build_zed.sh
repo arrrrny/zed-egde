@@ -1,4 +1,3 @@
-#!/bin/bash
 # Script to build ZED editor from source for macOS with continuous update checking
 
 ZED_REPO="zed-industries/zed"
@@ -14,6 +13,7 @@ RUST_CACHE_DIR="$HOME/.cargo" # For caching dependencies
 BUILD_PID_FILE="/tmp/zed_build.pid"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_LOGO_PATH="$SCRIPT_DIR/zed_edge_logo.png"
+DEFAULT_WRAPPER_NAME="zed"
 
 # Create a trap to cleanup on exit
 cleanup() {
@@ -304,32 +304,6 @@ build_zed() {
   echo "Build completed successfully."
 }
 
-# Add application to Dock
-add_to_dock() {
-  local app_path="$1"
-  echo "Adding $app_path to Dock..."
-
-  # Get the current dock apps
-  defaults write com.apple.dock persistent-apps -array-add "<dict>
-    <key>tile-data</key>
-    <dict>
-      <key>file-data</key>
-      <dict>
-        <key>_CFURLString</key>
-        <string>$app_path</string>
-        <key>_CFURLStringType</key>
-        <integer>0</integer>
-      </dict>
-      <key>file-label</key>
-      <string>ZED EDGE</string>
-    </dict>
-    <key>tile-type</key>
-    <string>file-tile</string>
-  </dict>"
-
-  # Restart Dock to apply changes
-  killall Dock
-}
 
 # Install the built application
 install_zed() {
@@ -410,6 +384,25 @@ install_zed() {
 
     # Touch the application to clear icon cache
     sudo touch "$INSTALL_DIR"
+
+    # Create wrapper script for CLI access
+    echo "Creating command-line wrapper script..."
+    # First remove existing symlink or file if present
+    sudo rm -f "$SYMLINK_PATH"
+    # Create a simple wrapper script if user wanted it
+    if [ "$CREATE_CLI_WRAPPER" = true ]; then
+      echo "Creating command-line wrapper at $SYMLINK_PATH..."
+      sudo echo '#!/bin/bash' > "$SYMLINK_PATH"
+      sudo echo 'if [ $# -eq 0 ]; then' >> "$SYMLINK_PATH"
+      sudo echo '    # No arguments, just open the app' >> "$SYMLINK_PATH"
+      sudo echo '    open "/Applications/ZED EDGE.app"' >> "$SYMLINK_PATH"
+      sudo echo 'else' >> "$SYMLINK_PATH"
+      sudo echo '    # Open with arguments' >> "$SYMLINK_PATH"
+      sudo echo '    open -a "ZED EDGE" "$@"' >> "$SYMLINK_PATH"
+      sudo echo 'fi' >> "$SYMLINK_PATH"
+      # Make sure it's executable
+      sudo chmod +x "$SYMLINK_PATH"
+    fi
   else
     echo "No Zed.app bundle found in build output. Creating one now..."
 
@@ -505,9 +498,23 @@ EOF
     # Touch the application to clear icon cache
     sudo touch "$INSTALL_DIR"
 
-    # Create symlink for CLI access
-    echo "Creating symlink for command-line access..."
-    sudo ln -sf "$INSTALL_DIR/Contents/MacOS/zed" "$SYMLINK_PATH"
+    # Create wrapper script for CLI access if user wanted it
+    if [ "$CREATE_CLI_WRAPPER" = true ]; then
+      echo "Creating command-line wrapper at $SYMLINK_PATH..."
+      # First remove existing symlink or file if present
+      sudo rm -f "$SYMLINK_PATH"
+      # Create a simple wrapper script
+      sudo echo '#!/bin/bash' > "$SYMLINK_PATH"
+      sudo echo 'if [ $# -eq 0 ]; then' >> "$SYMLINK_PATH"
+      sudo echo '    # No arguments, just open the app' >> "$SYMLINK_PATH"
+      sudo echo '    open "/Applications/ZED EDGE.app"' >> "$SYMLINK_PATH"
+      sudo echo 'else' >> "$SYMLINK_PATH"
+      sudo echo '    # Open with arguments' >> "$SYMLINK_PATH"
+      sudo echo '    open -a "ZED EDGE" "$@"' >> "$SYMLINK_PATH"
+      sudo echo 'fi' >> "$SYMLINK_PATH"
+      # Make sure it's executable
+      sudo chmod +x "$SYMLINK_PATH"
+    fi
 
     APP_STRUCTURE=true
   fi
@@ -531,16 +538,10 @@ EOF
 
   # Force the Dock to add the app and restart
   if [ "$APP_STRUCTURE" = true ]; then
-    # Add app to dock using our dedicated function
-    add_to_dock "$INSTALL_DIR"
-
-    # Wait a moment for Dock to relaunch
-    sleep 3
-
     echo "Launching ZED EDGE..."
     # Launch the app
     open "$INSTALL_DIR"
-    echo "ZED EDGE has been launched! You can also run it from your Applications folder or using the command: zed"
+    echo "ZED EDGE has been launched! You can also run it from your Applications folder or using the command: $WRAPPER_NAME"
   else
     echo "Launching ZED EDGE..."
     # Launch the binary directly
@@ -552,6 +553,26 @@ EOF
 # Main execution
 main() {
   check_dependencies
+
+  # Ask user if they want to create a command-line wrapper
+  echo "ZED EDGE can be launched from the command line using a wrapper script."
+  read -p "Would you like to create a command-line wrapper? (Y/n): " create_wrapper
+  if [[ $create_wrapper == "n" || $create_wrapper == "N" ]]; then
+    CREATE_CLI_WRAPPER=false
+    echo "Command-line wrapper will not be created."
+  else
+    CREATE_CLI_WRAPPER=true
+
+    # Ask for wrapper name
+    read -p "Enter the name for the command line wrapper (default: $DEFAULT_WRAPPER_NAME): " wrapper_name
+    WRAPPER_NAME=${wrapper_name:-$DEFAULT_WRAPPER_NAME}
+    SYMLINK_PATH="/usr/local/bin/$WRAPPER_NAME"
+
+    echo "Command-line wrapper will be created as: $WRAPPER_NAME"
+  fi
+  export CREATE_CLI_WRAPPER
+  export WRAPPER_NAME
+  export SYMLINK_PATH
 
   if ! get_latest_commit; then
     echo "Failed to get latest commit information."
