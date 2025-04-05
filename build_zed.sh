@@ -324,16 +324,20 @@ install_zed() {
     echo "Found Zed.app bundle in build output."
     APP_STRUCTURE=true
 
-    # Remove any existing installation
+    # Backup any existing installation
     if [ -d "$INSTALL_DIR" ]; then
+      echo "Backing up existing installation..."
+      # Remove old backup if it exists
+      if [ -d "$INSTALL_DIR.bak" ]; then
+        echo "Removing old backup..."
+        sudo rm -rf "$INSTALL_DIR.bak" 2>/dev/null
+      fi
+      # Create backup of current installation
+      echo "Creating backup of current installation to $INSTALL_DIR.bak"
+      sudo cp -R "$INSTALL_DIR" "$INSTALL_DIR.bak"
+      # Now remove the current installation
       echo "Removing existing installation..."
       sudo rm -rf "$INSTALL_DIR" 2>/dev/null
-    fi
-
-    # Also clean up any backup if it exists
-    if [ -d "$INSTALL_DIR.bak" ]; then
-      echo "Removing old backup..."
-      sudo rm -rf "$INSTALL_DIR.bak" 2>/dev/null
     fi
 
     # Create a temporary copy to customize
@@ -471,16 +475,20 @@ EOF
     iconutil -c icns "$TMP_ICONSET" -o "$TMP_APP_DIR/Contents/Resources/AppIcon.icns"
     rm -rf "$TMP_ICONSET"
 
-    # Remove any existing installation
+    # Backup any existing installation
     if [ -d "$INSTALL_DIR" ]; then
+      echo "Backing up existing installation..."
+      # Remove old backup if it exists
+      if [ -d "$INSTALL_DIR.bak" ]; then
+        echo "Removing old backup..."
+        sudo rm -rf "$INSTALL_DIR.bak" 2>/dev/null
+      fi
+      # Create backup of current installation
+      echo "Creating backup of current installation to $INSTALL_DIR.bak"
+      sudo cp -R "$INSTALL_DIR" "$INSTALL_DIR.bak"
+      # Now remove the current installation
       echo "Removing existing installation..."
       sudo rm -rf "$INSTALL_DIR" 2>/dev/null
-    fi
-
-    # Also clean up any backup if it exists
-    if [ -d "$INSTALL_DIR.bak" ]; then
-      echo "Removing old backup..."
-      sudo rm -rf "$INSTALL_DIR.bak" 2>/dev/null
     fi
 
     # Copy the app bundle to the Applications directory
@@ -587,6 +595,18 @@ main() {
   install_zed
 
   echo "ZED EDGE has been successfully built from the main branch."
+  
+  # Display backup information if a backup was created
+  if [ -d "$INSTALL_DIR.bak" ]; then
+    echo ""
+    echo "---------------------------------------------------------------------"
+    echo "A backup of your previous ZED EDGE installation has been saved to:"
+    echo "$INSTALL_DIR.bak"
+    echo ""
+    echo "To restore from backup, you can run:"
+    echo "sudo rm -rf \"$INSTALL_DIR\" && sudo mv \"$INSTALL_DIR.bak\" \"$INSTALL_DIR\""
+    echo "---------------------------------------------------------------------"
+  fi
 }
 
 # Run the script
