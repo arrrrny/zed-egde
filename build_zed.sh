@@ -14,6 +14,8 @@ BUILD_PID_FILE="/tmp/zed_build.pid"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_LOGO_PATH="$SCRIPT_DIR/zed_edge_logo.png"
 DEFAULT_WRAPPER_NAME="zed"
+FORKLIFT_REPO="git@github.com:arrrrny/forklift.git"
+FORKLIFT_BRANCH="forklift"
 
 # Create a trap to cleanup on exit
 cleanup() {
@@ -60,6 +62,33 @@ check_dependencies() {
   fi
 
   echo "All dependencies are installed."
+}
+
+# Function to fetch and merge the forklift branch
+merge_forklift() {
+  echo "Fetching and merging the forklift branch..."
+  cd "$CLONE_DIR" || {
+    echo "Error: Could not change to repository directory."
+    exit 1
+  }
+
+  # Add the forklift repository as a remote if not already added
+  if ! git remote | grep -q "forklift"; then
+    git remote add forklift "$FORKLIFT_REPO"
+  fi
+
+  # Fetch the forklift branch
+  git fetch forklift "$FORKLIFT_BRANCH"
+
+  # Merge the forklift branch into the current branch
+  git merge "forklift/$FORKLIFT_BRANCH" --no-edit
+
+  if [ $? -ne 0 ]; then
+    echo "Error: Failed to merge the forklift branch."
+    exit 1
+  fi
+
+  echo "Successfully merged the forklift branch."
 }
 
 # Get latest commit hash from main branch
@@ -144,8 +173,14 @@ setup_repository() {
   else
     echo "Updating ZED repository..."
     cd "$CLONE_DIR"
+    # Reset any local changes to avoid conflicts
+    git reset --hard
+    # Ensure we're on the main branch
     git checkout main
-    git pull origin main
+    # Fetch the latest changes from the remote
+    git fetch origin
+    # Reset the local main branch to match the remote main branch
+    git reset --hard origin/main
     if [ $? -ne 0 ]; then
       echo "Failed to update repository."
       exit 1
@@ -158,6 +193,7 @@ setup_repository() {
 
   echo "Repository is up to date."
 }
+
 
 # Function to check for updates continuously
 check_for_updates_during_build() {
@@ -583,6 +619,7 @@ main() {
   check_for_updates
 
   setup_repository
+  merge_forklift
   build_zed
   install_zed
 
